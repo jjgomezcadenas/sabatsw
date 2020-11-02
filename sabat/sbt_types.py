@@ -7,11 +7,17 @@ from   invisible_cities.core.system_of_units import *
 
 photon = 1
 molecule = 1
-GM = 1e-50 * cm2*cm2*second / (photon * molecule)
-us = photon / second
-ucm2 = photon / cm2
-ucm3 = molecule / cm3
 gp = 0.664
+
+mum2 = mum * mum
+GM   = 1e-50 * cm2*cm2*second / (photon * molecule)
+us   = 1 / second
+ucm  = 1 / cm
+umm  = 1 / mm
+umum = 1 / mum
+ucm2 = 1 / cm2
+ucm3 = 1 / cm3
+mW   = milliwatt
 
 @dataclass
 class FoV:
@@ -135,10 +141,7 @@ class Microscope:
 
     def optical_transmission(self)->float:
         A = self.numerical_aperture
-        if A >= 1:
-            return 0.2
-        else:
-            return (1 - np.cos(A)) /2
+        return (1 - np.sqrt(1 - A**2)) /2 if A <=1 else 0.5
 
     def filter_transmission(self)->float:
         return self.eff_dichroic * self.eff_filter
@@ -187,7 +190,7 @@ class PulsedLaser(Laser):
         wavelength                ={0:5.1e} nm
         photon energy             ={1:5.1e} eV
         power                     ={2:5.1e} mW
-        repetition rate           ={3:5.1e} kHz
+        repetition rate           ={3:5.1e} MHz
         pulse width               ={4:5.1e} fs
         energy per pulse          ={5:5.1e} fJ
         energy per second         ={6:5.1e} mJ
@@ -268,6 +271,49 @@ class Molecule:
 @dataclass
 class Molecule2P(Molecule):
     GM = 1e-50 * cm2*cm2*second
+    lamda : np.array = np.array([691 * nm,
+                        700 * nm ,
+                        720 * nm ,
+                        740 * nm ,
+                        760 * nm ,
+                        780 * nm ,
+                        800 * nm ,
+                        820 * nm ,
+                        840 * nm ,
+                        860 * nm ,
+                        890 * nm ,
+                        900 * nm ,
+                        920 * nm ,
+                        940 * nm ,
+                        960 * nm ,
+                        980 * nm ,
+                        1000* nm ])
+    s2 :    np.array  = np.array([16 * GM,
+                         19 * GM,
+                         19 * GM,
+                         30 * GM,
+                         36 * GM,
+                         36 * GM,
+                         36 * GM,
+                         29 * GM,
+                         13 * GM,
+                         8  * GM,
+                         11 * GM,
+                         16 * GM,
+                         26 * GM,
+                         11 * GM,
+                         15 * GM,
+                         10 * GM,
+                         5  * GM])
+
+    def sigma2(self, lamda : float)->float:
+        return np.interp(lamda, self.lamda, self.s2)
+
+@dataclass
+class FBI   :
+
+    Q  : float # effective QE
+    GM : float = 17.2 * 1e-50 * cm2*cm2*second
     lamda : np.array = np.array([691 * nm,
                         700 * nm ,
                         720 * nm ,

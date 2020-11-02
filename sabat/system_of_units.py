@@ -41,6 +41,7 @@
 # Length [L]
 #
 
+NA = 6.023e+23
 
 euro = 1.
 millimeter = 1.
@@ -71,6 +72,7 @@ angstrom = 1.e-10 * meter
 fermi = 1.e-15 * meter
 
 nm = nanometer
+nm2 = nm*nm
 mum = micrometer
 
 micron = micrometer
@@ -122,6 +124,7 @@ second = 1.e+9 * nanosecond
 millisecond = 1.e-3 * second
 microsecond = 1.e-6 * second
 picosecond = 1.e-12 * second
+femtosecond = 1.e-15 * second
 year = 3.1536e+7 * second
 day = 864e2 * second
 minute = 60 * second
@@ -195,7 +198,8 @@ mg = milligram
 # Power [E][T^-1]
 #
 watt = joule/second  # watt = 6.24150 e+3 * MeV/ns
-
+milliwatt = 1e-3*watt
+microwatt = 1e-6*watt
 #
 # Force [E][L^-1]
 #
@@ -289,6 +293,12 @@ K = kelvin
 mole = 1
 mol = mole
 kmol = 1E+3*mol
+mmol = 1E-3*mol
+millimole = 1E-3*mol
+mumol = 1E-6*mol
+micromole = 1E-6*mol
+nanomole = 1E-9*mol
+
 
 #
 # Activity [T^-1]

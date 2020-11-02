@@ -11,7 +11,8 @@ from  . sbt_types import Microscope
 from  . sbt_types import Monolayer
 from  . sbt_types import PhotonsPerSample
 from  . sbt_types import CCD
-from  .sbt_types import  photon, molecule, GM, us, ucm2, ucm3, gp
+from  .sbt_types import  photon, molecule, GM, us, ucm2, mum2, ucm3, gp
+from  .sbt_types import  FBI
 
 import numpy as np
 import pandas as pd
@@ -60,7 +61,7 @@ class XMOL:
 
 class FIB(XMOL):
     def __init__(self, Q=0.9):
-        path       = '/Users/jjgomezcadenas/Projects/Development/sabatsw/data'
+        path       = os.environ['SABATDATA']
         tpa_file   = 'fluoTPA.csv'
         fibc_file  = 'fib_chelated.txt.csv'
         fibu_file  = 'fib_unchelated.txt.csv'
@@ -86,7 +87,7 @@ class FIB(XMOL):
 
 class FLUO3(XMOL):
     def __init__(self):
-        path       = '/Users/jjgomezcadenas/Projects/Development/sabatsw/data'
+        path       = os.environ['SABATDATA']
         tpa_file   = 'fluoTPA.csv'
         fibc_file  = 'FLUO3_chelated.csv'
         fibu_file  = 'FLUO3_chelated.csv'
@@ -172,6 +173,9 @@ class Setup:
             print(f'Fluorescence (n= 3) ={self.fluorescence(n_photons=3)/us:5.1e}')
 
 
+def optical_transmission(A)->float:
+    return (1 - np.sqrt(1 - A**2)) /2 if A <=1 else 0.5
+
     def fluorescence(self, n_photons=2)->float:
         if n_photons == 2:
             F = fluorescence_2p_dl(self.ds, self.fl2, self.lb, self.mc)
@@ -197,7 +201,35 @@ class Setup:
         n_f = self.photons_per_pixel(n_photons) * self.mc.transmission()
         return n_f
 
+def nf_ccd(nf, eps_a, eps_band):
+    """Fluorescence recorded in the ccd due to chelated molecules:
+    - nf is the fluorescence emitted in a given time interval by the chelated indicator
+    - eps_a the optical acceptance of the system
+    - eps_band the band efficiency.
+    """
+    return nf * eps_a * eps_band
 
+
+def nb_ccd(nf, m, C, eps_a, eps_band):
+    """Fluorescence recorded in the ccd due to m unchelated molecules:
+    - nf is the fluorescence emitted in a given time interval by the chelated indicator
+    - m is the number of unchelated molecules
+    - C is the relative brightness of chelated vs unchelated
+    - eps_a the optical acceptance of the system
+    - eps_band the band efficiency.
+    """
+    return nf * m * eps_a * eps_band / C
+
+
+def snr(nf, F, m, eps_a, eps_band):
+    """SNR to detect a single chelated molecule among m unchelated molecule
+    - nf is the fluorescence emitted in a given time interval by the chelated indicator
+    - m is the number of unchelated molecules
+    - eps_a the optical acceptance of the system
+    - eps_band the band efficiency.
+    - F is the separation factor
+    """
+    return np.sqrt(eps_a * eps_band * nf * F / m)
 def signal(ml : Monolayer, n_exp : int =int(1e+2))->np.array:
     mu_s    = ml.nf
     sigma_s = np.sqrt(mu_s)
@@ -421,3 +453,147 @@ def absorbed_photons_per_fluorophore_per_pulse_2p(m: Molecule2P, lb: GLaser, mc 
     # print(f'((A**2 / (2 * hbarc * lamda))**2       ={t2} J^-2 cm^-4')
 
     return t1 * t2
+
+
+def absorbed_photons_per_fluorophore_per_pulse_2p_FBI(lb: GLaser,
+                                                      mc : Microscope,
+                                                      fbi: FBI)->float:
+    """
+        na = (p0^2 * delta)/(tau * f^2) * (A^2/(2 hbarc * lambda))^2
+        natural units, hbarc = 1
+
+
+    """
+
+    hbarc   = 3.16    * 1e-24                    # J cm
+    p0      = lb.power/W                         # W (J/S)
+    delta   = fbi.sigma2(lb.lamda)/(cm2*cm2*s)     # cm4 s
+    tau     = lb.tau/second                     # s
+    f       = lb.f/hertz                            # hZ
+    lamda   = lb.lamda/cm                       # cm
+    A       = mc.numerical_aperture
+
+
+    t1 = (p0**2 * fbi.Q * delta) / (tau * f**2)
+    t2 = (A**2 / (2 * hbarc * lamda))**2
+    return t1 * t2
+
+def absorbed_photons_per_fluorophore_per_pulse_2p_wf_FBI(lb: GLaser,
+                                                         mc : Microscope,
+                                                         fbi: FBI,
+                                                         wr : float)->float:
+    """
+    redefine function above to wire FIB by hand and also
+    add dependence with focus. Formula above is in the difractive limit.
+    When wide field is use, na should decrease as (dl / wl)**2
+
+    na = (p0^2 * delta)/(tau * f^2) * (A^2/(2 hbarc * lambda))^2
+    natural units, hbarc = 1
+
+    wr: radius of wide field, for diffraction limit
+    make it equal to the diffraction spot
+
+    """
+
+    hbarc   = 3.16    * 1e-24                    # J cm
+    p0      = lb.power/W                         # W (J/S)
+    delta   = fbi.sigma2(lb.lamda)/(cm2*cm2*s)               # cm4 s
+    tau     = lb.tau/second                      # s
+    f       = lb.f/hertz                         # hZ
+    lamda   = lb.lamda/cm                        # cm
+    A       = mc.numerical_aperture
+
+
+    t1 = (p0**2 * fbi.Q * delta) / (tau * f**2)
+    t2 = (A**2 / (2 * hbarc * lamda))**2
+    rd = diffraction_limit(lb, mc)
+    f = (wr / rd)**2
+    return t1 * t2 /f
+
+
+def epi_setup(molecule, laser, microscope, adlayer,
+              nof_pixels=1e+5, eps_band_signal=0.3, eps_band_bkgnd=0.0036, C=310,
+              TPA =False,
+              verbose=False):
+
+    """Returns the fluorescence of a setup characterised by:
+    - A molecule species
+    - A microscope setup
+    - A laser on epi fluorescence
+    - An adalyer defined by the diameter of the focusing spot and density of molecules gf
+
+    """
+
+    I          = adlayer.photon_density(laser)
+
+    if TPA:
+        nf = absorbed_photons_per_fluorophore_per_pulse_2p_wf_FBI(laser,
+                                                                  microscope,
+                                                                  molecule,
+                                                                  wr = adlayer.d)
+        # fluorescence/second: nphotons_per_pulse x laser_repetition_rate
+        fm = 0.5 * nf * laser.f/us # absorbs two photons emits one
+    else:
+        f          = fluorescence_per_molecule(molecule, I)
+        fm         = f/us
+
+    Nf = nf_ccd(nf=fm, eps_a= microscope.transmission(), eps_band=eps_band_signal)
+    Nb = nb_ccd(nf=fm, m=adlayer.nf_pixel(nof_pixels),
+                C=C, eps_a= microscope.transmission(), eps_band=eps_band_bkgnd)
+    SNR = Nf/np.sqrt(Nb)
+    snrMS = SNR * np.sqrt(1E-3)  # S/N in 1 ms
+
+    if verbose:
+        print(f"""
+        nof molec      = {adlayer.nf:5.1e}
+        nof molec/pixel= {adlayer.nf_pixel(nof_pixels):5.1e}
+        area/pixel     = {adlayer.area_pixel(nof_pixels)/mum2:5.1e} um2
+        Photon density = {I/(us*ucm2):5.1e} photons/(second cm2)
+        F              = {fm:5.1e} (per molecule/second)
+        Nf             = {Nf:5.1e} (blue band, signal)
+        Nb             = {Nb:5.1e} (blue band, background)
+        SNR            = {SNR:5.1e} per second
+
+        SNR per ms     = {snrMS:5.1e}
+        """)
+        return snrMS
+
+
+def TPA_setup(molecule, laser, microscope, adlayer,
+              nof_pixels=1e+5, eps_band_signal=0.3, eps_band_bkgnd=0.0036, C=310,
+              verbose=False):
+    """Returns the fluorescence of a setup characterised by:
+    - A molecule species
+    - A microscope setup
+    - A laser on epi fluorescence (TPA)
+    - An adalyer defined by the diameter of the focusing spot and density of molecules gf
+
+    """
+
+    I          = adlayer.photon_density(laser)
+
+    nf = absorbed_photons_per_fluorophore_per_pulse_2p_wf_FBI(laser,
+                                                               microscope,
+                                                               molecule,
+                                                               wr = adlayer.d)
+    fm = 0.5 * nf * laser.f/us # absorbs two photons emits one
+
+    Nf = nf_ccd(nf=fm, eps_a= microscope.transmission(), eps_band=eps_band_signal)
+    Nb = nb_ccd(nf=fm, m=adlayer.nf_pixel(nof_pixels),
+                C=C, eps_a= microscope.transmission(), eps_band=eps_band_bkgnd)
+    SNR = Nf/np.sqrt(Nb)
+    snrMS = SNR * np.sqrt(1E-3)  # S/N in 1 ms
+
+    if verbose:
+        print(f"""
+        nof molec/pixel= {adlayer.nf_pixel(nof_pixels):5.1e}
+        area/pixel     = {adlayer.area_pixel(nof_pixels)/mum2:5.1e} um2
+        Photon density = {I/(us*ucm2):5.1e} photons/(second cm2)
+        ng/second      = {fm:2.1e}
+        Nf             = {Nf:5.1e} (blue band, signal)
+        Nb             = {Nb:5.1e} (blue band, background)
+        SNR            = {SNR:5.1e} per second
+
+        SNR per ms     = {snrMS:5.1e}
+        """)
+        return snrMS
