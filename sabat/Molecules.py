@@ -1,3 +1,4 @@
+import os
 from   dataclasses import dataclass
 from  pandas import DataFrame
 import pandas as pd
@@ -10,21 +11,30 @@ from   invisible_cities.core.system_of_units import *
 GM = 1e-50 * cm2*cm2*second
 
 @dataclass
-class FIB(Molecule2P):
-    xsTPA : DataFrame = pd.read_csv("/Users/jjgomezcadenas/Projects/Development/sabatsw/data/fluoTPA.csv")
-    fibc : DataFrame = pd.read_csv("/Users/jjgomezcadenas/Projects/Development/sabatsw/data/fib_chelated.txt.csv")
-    fibu : DataFrame = pd.read_csv("/Users/jjgomezcadenas/Projects/Development/sabatsw/data/fib_unchelated.txt.csv")
-    def fibc_spectrum(self, lamda : float)->float:
-        return np.interp(lamda, self.fibc.L.values, self.fibc.I.values)
-    def fibu_spectrum(self, lamda : float)->float:
-        return np.interp(lamda, self.fibu.L.values, self.fibu.I.values)
+class FBIsPA:
+    fbidf : DataFrame = pd.read_excel(f"{os.environ['SABATDATA']}/EDI_029_absorption.xlsx")
+    sigma : float = 0.07 * nm
+    def fbic_sigma(self, lamda : float)->float:
+        return np.interp(lamda/nm, self.fbidf.II.values, self.fbidf.FBI_Ba.values) * self.sigma
+    def fbiu_sigma(self, lamda : float)->float:
+        return np.interp(lamda/nm, self.fbidf.II.values, self.fbidf.FBI.values) * self.sigma 
 
-    def sigma2(self, lamda : float)->float:
-        return np.interp(lamda, self.xsTPA.L.values, self.xsTPA.S2.values)
-
-@dataclass
-class Fluo3:
-    xsTPA : DataFrame = pd.read_csv("/Users/jjgomezcadenas/Projects/Development/sabatsw/data/fluoTPA.csv")
-
-    def sigma2(self, lamda : float)->float:
-        return np.interp(lamda, self.xsTPA.L.values, self.xsTPA.S2.values)
+# @dataclass
+# class FIB(Molecule2P):
+#     xsTPA : DataFrame = pd.read_csv("/Users/jjgomezcadenas/Projects/Development/sabatsw/data/fluoTPA.csv")
+#     fibc : DataFrame = pd.read_csv("/Users/jjgomezcadenas/Projects/Development/sabatsw/data/fib_chelated.txt.csv")
+#     fibu : DataFrame = pd.read_csv("/Users/jjgomezcadenas/Projects/Development/sabatsw/data/fib_unchelated.txt.csv")
+#     def fibc_spectrum(self, lamda : float)->float:
+#         return np.interp(lamda, self.fibc.L.values, self.fibc.I.values)
+#     def fibu_spectrum(self, lamda : float)->float:
+#         return np.interp(lamda, self.fibu.L.values, self.fibu.I.values)
+#
+#     def sigma2(self, lamda : float)->float:
+#         return np.interp(lamda, self.xsTPA.L.values, self.xsTPA.S2.values)
+#
+# @dataclass
+# class Fluo3:
+#     xsTPA : DataFrame = pd.read_csv("/Users/jjgomezcadenas/Projects/Development/sabatsw/data/fluoTPA.csv")
+#
+#     def sigma2(self, lamda : float)->float:
+#         return np.interp(lamda, self.xsTPA.L.values, self.xsTPA.S2.values)
