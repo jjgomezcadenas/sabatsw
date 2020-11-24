@@ -4,7 +4,7 @@ from   typing      import TypeVar
 
 import numpy as np
 from   invisible_cities.core.system_of_units import *
-
+    
 photon = 1
 molecule = 1
 gp = 0.664

@@ -180,6 +180,16 @@ eV2 = eV*eV
 joule = electronvolt/e_SI  # joule = 6.24150 e+12 * MeV
 J = joule
 kJ = 1e+3*joule
+milijoule = 1e-3 * joule
+microjoule = 1e-6 * joule
+nanojoule = 1e-9 * joule
+picojoule = 1e-12 * joule
+femtojoule = 1e-15 * joule
+mJ  = milijoule
+muJ = microjoule
+nJ  = nanojoule
+pJ  = picojoule
+fJ  = femtojoule
 #
 # Mass [E][T^2][L^-2]
 #
